@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    ports:
+      - "2181:2181" # Map ra port 2181 của máy Windows
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data # Sử dụng Docker volumes trên Windows
+      - zookeeper_log:/var/lib/zookeeper/log
+    networks:
+      - kafka-net # Docker network nội bộ trên Windows
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka
+    ports:
+      - "9092:9092" # Map ra port 9092 của máy Windows
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+
+      KAFKA_LISTENERS: LISTENER_INTERNAL://0.0.0.0:29092,LISTENER_EXTERNAL://0.0.0.0:9092
+
+      # KAFKA_ADVERTISED_LISTENERS:
+      # - LISTENER_INTERNAL://kafka:29092 : Cho giao tiếp nội bộ Docker trên Windows.
+      # - LISTENER_EXTERNAL://192.168.64.1:9092 : MẶC ĐỊNH cho VMWare Ubuntu kết nối đến.
+
+# Comment 1 trong 2 KAFKA_ADVERTISED_LISTENERS
+
+	# VMWare, bỏ cmt dòng dưới
+      #KAFKA_ADVERTISED_LISTENERS: LISTENER_INTERNAL://kafka:29092,LISTENER_EXTERNAL://192.168.64.1:9092
+
+      #   Khi dùng với DATABRICKS (qua ngrok), THAY THẾ '192.168.64.1:9092' bằng địa chỉ ngrok.
+      KAFKA_ADVERTISED_LISTENERS: LISTENER_INTERNAL://kafka:29092,LISTENER_EXTERNAL://0.tcp.ap.ngrok.io:12442
+
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: LISTENER_INTERNAL:PLAINTEXT,LISTENER_EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_INTERNAL
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    volumes:
+      - kafka_data:/var/lib/kafka/data # Sử dụng Docker volumes trên Windows
+    networks:
+      - kafka-net # Docker network nội bộ trên Windows
+
+volumes:
+  zookeeper_data:
+    driver: local
+  zookeeper_log:
+    driver: local
+  kafka_data:
+    driver: local
+
+networks:
+  kafka-net:
+    driver: bridge # Hoặc để trống, Docker Compose sẽ tự tạo network mặc định
